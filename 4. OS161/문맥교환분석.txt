@@ -1,0 +1,132 @@
+
+/문맥교환의 흐름/
+
+운영체제는 예외를 받음으로써 비로소 어떤 작업을 처리할 수 있다.
+
+예외처리를 위해서 운영체제는 부팅하면서 어셈블리어로 작성된 Exception handler 를 메모리에 올린다.
+
+그 코드를 OS/161 소스의 kern/arch/mips/locore/exception-mips1.S 에서 확인할 수 있다.
+
+UTLB exception handler 는 메모리 0x80000000 번지에, 범용 exception handler 가 0x80000080 번지에 위치하게 된다.
+
+어떤 exception handler 이던지 간에, 예외(인터럽트)가 발생해서 인터럽트 서비스 루틴이 실행되면 가장 먼저 수행되는 일은 트랩 프레임을 저장하는 일이다.
+
+이렇게 레지스터 값을 모두 저장한 뒤에는 mips_trap() 함수로 점프한다.
+
+그 다음 mips_trap() 함수가 반환하면서 저장했던 레지스터 값을 전부 다시 불러온다.
+
+그러면 예외가 발생했던 지점에서부터 프로그램의 수행을 계속 진행할 수 있게 되어, 한 번의 문맥교환이 완료한다.
+
+/끝: 문맥교환의 흐름/
+
+
+/트랩 프레임/
+
+트랩 프레임은 스레드의 직전 상태를 의미하며 어떤 시점에서 범용 레지스터의 값을 모아둔 것이다.
+
+트랩 프레임의 구조는 kern/arch/mips/include/trapframe.h 에 나타난다.
+
+struct trapframe {
+	uint32_t tf_vaddr;	/* coprocessor 0 vaddr register */
+	uint32_t tf_status;	/* coprocessor 0 status register */
+	uint32_t tf_cause;	/* coprocessor 0 cause register */
+	uint32_t tf_lo;
+	uint32_t tf_hi;
+...
+	uint32_t tf_gp;
+	uint32_t tf_sp;
+	uint32_t tf_s8;
+	uint32_t tf_epc;	/* coprocessor 0 epc register */
+};
+
+트랩프레임은 37개의 워드로 구성되어 있다.
+
+자료형에서 uint32 타입은 unsigned int 32비트를 의미하는 것으로 그 4바이트가 1워드에 해당한다.
+
+/끝: 트랩 프레임/
+
+
+/스택 할당/
+
+트랩프레임을 저장하기에 앞서서 트랩프레임을 저장하기 위한 스택의 공간을 할당한다.
+
+kern/arch/mips/locore/exception-mips1.S (line 137)
+
+addi sp, sp, -168
+
+스택 메모리를 확보하기 위해서 스택 포인터를 위로 168 바이트만큼 움직인다.
+
+트랩 프레임의 37워드에 대응하는 37*4=148바이트에 추가적으로 함수에 넘길 인자를 쓰기 위한 워드 4개의 메모리공간 4*4=16바이트, 64비트 스택 할당(관리)을 위한 1워드 4바이트가 할당되어 총 168바이트가 된다.
+
+/끝: 스택 할당/
+
+
+/트랩 프레임의 저장/
+
+kern/arch/mips/locore/exception-mips1.S
+
+예외나 인터럽트가 발생하면 이곳의 코드가 수행되면서 트랩 프레임을 저장한다.
+
+   sw k1, 160(sp)	/* real saved PC */
+
+   sw t9, 136(sp)
+   sw t8, 132(sp)
+   sw s7, 128(sp)
+...
+   sw v1, 48(sp)
+   sw v0, 44(sp)
+   sw AT, 40(sp)
+
+   sw ra, 36(sp)
+
+트랩프레임의 37개 워드를 sw(store word)한다.
+
+이상에서 현시점에서의 스레드의 범용 레지스터 값과 스택 정보가 저장된다.
+
+이곳에 하던 일을 마치고 돌아올 주소 따위가 기록되어 있다.
+
+/끝: 트랩 프레임의 저장/
+
+
+/함수 호출/
+
+레지스터의 상태를 저장하고 난 뒤에는 예외 발생에 의해서 수행될 함수로 점프한다.
+
+kern/arch/mips/locore/exception-mips1.S (line 259)
+
+   addiu a0, sp, 16             /* set argument - pointer to the trapframe */
+   jal mips_trap		/* call it */
+   nop				/* delay slot */
+
+함수의 인자를 넘긴 다음 jal(jump and link)하여 그 함수(mips_trap())를 호출한다.
+
+/끝: 함수 호출/
+
+
+/복귀/
+
+문맥교환시 예외로부터 복귀하면서 저장했던 레지스터의 값을 다시 불러오게 된다.
+
+mips_trap() 이 반환하면서 복귀 코드가 수행된다.
+
+exception return 할 때에 이전 상태를 불러오는 코드는 다음과 같다.
+
+kern/arch/mips/locore/exception-mips1.S (후반부)
+
+...
+   lw AT, 40(sp)
+   lw v0, 44(sp)
+   lw v1, 48(sp)
+   lw a0, 52(sp)
+   lw a1, 56(sp)
+...
+   lw t8, 132(sp)
+   lw t9, 136(sp)
+...
+
+(lw)load word 를 통해 저장했던 상태로 레지스터의 값을 복구한다.
+
+/끝: 복귀/
+
+
+2012150421 문동선

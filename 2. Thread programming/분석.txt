@@ -1,0 +1,44 @@
+1. 스레드 생성 없는 경우
+1차				2차				3차				평균	
+real	0m3.727s		real	0m3.737s		real	0m3.718s		real	0m3.727s
+user	0m3.516s		user	0m3.572s		user	0m3.536s		user	0m3.541s
+sys	0m0.000s		sys	0m0.000s		sys	0m0.000s		sys	0m0.000s
+
+2. 스레드 100만 개 생성
+1차				2차				3차				평균
+real	0m28.655s		real	0m29.912s		real	0m28.742s		real	0m29.103s
+user	0m7.828s		user	0m7.080s		user	0m7.940s		user	0m7.616s
+sys	0m18.128s		sys	0m20.132s		sys	0m18.120s		sys	0m18.793s
+
+3. 스레드 1000개 생성 (join() 호출)
+1차				2차				3차				평균
+real	0m3.957s		real	0m3.822s		real	0m3.882s		real	0m3.887s
+user	0m3.628s		user	0m3.524s		user	0m3.564s		user	0m3.572s
+sys	0m0.020s		sys	0m0.024s		sys	0m0.020s		sys	0m0.021s
+
+4. 스레드 1000개 생성 (detach 옵션 사용)
+1차				2차				3차				평균
+real	0m3.474s		real	0m3.768s		real	0m3.586s		real	0m3.609s
+user	0m3.248s		user	0m3.464s		user	0m3.348s		user	0m3.353s
+sys	0m0.036s		sys	0m0.036s		sys	0m0.024s		sys	0m0.032s
+
+5. 스레드 1개 생성
+1차				2차				3차				평균
+real	0m3.780s		real	0m3.730s		real	0m3.774s		real	0m3.761s
+user	0m3.532s		user	0m3.480s		user	0m3.532s		user	0m3.515s
+sys	0m0.000s		sys	0m0.000s		sys	0m0.000s		sys	0m0.000s
+
+
+- 스레드 1개 생성했을 때와 스레드 생성 없이 메인 스레드만 사용한 경우의 실행 시간의 차이는 거의 없다.
+
+- 스레드의 갯수가 과도하게 많아지면 프로그램이 오히려 느려진다(실행시간이 길어진다).
+
+- 1000개의 스레드가 병렬적으로 처리하는 구성에서 실행시간이 가장 짧다.
+
+- 스레드 사용에 의해 커널의 CPU 사용 시간이 생긴다(길어진다).
+
+- 병렬처리는 실행시간을 단축시키지만, 스레드의 생성소멸로 인한 오버헤드가 있다.
+
+
+
+
